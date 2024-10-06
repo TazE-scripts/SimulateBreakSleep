@@ -91,24 +91,24 @@ end;
 
 procedure TAntiban.SimulateBreaksAndSleep();
 var
-  RunTime, SleepTime, BreakTime, TotalActiveTime: TDateTime;
+  RunTime, SleepTime, BreakTime: TDateTime;
 begin
   WriteLn('Simulating Breaks:');
   RunTime := Self.SimulateBreaks();
-  BreakTime := ONE_DAY - RunTime;
-
   WriteLn;
+
   WriteLn('Simulating Sleep:');
   SleepTime := Self.SimulateSleep();
-
-  TotalActiveTime := ONE_DAY - SleepTime;
-
   WriteLn;
+
+  // Calculate break time based on the break simulation
+  BreakTime := ONE_DAY - RunTime;
+
+
   WriteLn('Summary:');
-  WriteLn('Average run time (excluding long breaks): ', SRL.MsToTime(Round(RunTime), TIME_FORMAL_LONG));
   WriteLn('Average break time: ', SRL.MsToTime(Round(BreakTime), TIME_FORMAL_LONG));
   WriteLn('Average sleep time: ', SRL.MsToTime(Round(SleepTime), TIME_FORMAL_LONG));
-  WriteLn('Average total active time: ', SRL.MsToTime(Round(TotalActiveTime), TIME_FORMAL_LONG));
+  WriteLn('Average total active time: ', SRL.MsToTime(Round(ONE_DAY - BreakTime - SleepTime), TIME_FORMAL_LONG));
   WriteLn('Average total inactive time: ', SRL.MsToTime(Round(BreakTime + SleepTime), TIME_FORMAL_LONG));
 end;
 
