@@ -1,0 +1,136 @@
+program AntibanSimulationDemo;
+{$I SRL-T/osr.simba}
+{$I WaspLib/osr.simba}
+
+type
+  TScript = TBaseScript;
+
+
+function TAntiban.SimulateBreaks(): TDateTime; overload;
+const
+  TEST_DAYS: UInt64 = 1000;
+var
+  Active, Inactive, Len, Prev: Double;
+  I: Int32;
+  Task: PBreakTask;
+begin
+  WriteLn('Number of days to simulate: ', TEST_DAYS);
+
+  while (Active + Inactive < TEST_DAYS * ONE_DAY) do
+  begin
+    Task := @Self.Breaks[0];
+    for I := 0 to High(Self.Breaks) do
+      if Self.Breaks[I].NextAtTime < Task^.NextAtTime then
+        Task := @Self.Breaks[I];
+    Len := Abs(SRL.GaussRand(Task^.Length, Task^.Length * Task^.StdVar));
+    Active += Task^.NextAtTime - Prev;
+    Inactive += Len;
+    for I := 0 to High(Self.Breaks) do
+      Self.Breaks[I].NextAtTime += Len;
+    Prev := Task^.NextAtTime;
+    Task^.NextAtTime += Abs(SRL.GaussRand(Task^.Interval, Task^.Interval * Task^.StdVar));
+  end;
+
+  Inactive /= TEST_DAYS;
+  Active /= TEST_DAYS;
+
+  WriteLn('Average active time per day: ', SRL.MsToTime(Round(Active), TIME_FORMAL_LONG));
+  WriteLn('Average break time per day: ', SRL.MsToTime(Round(Inactive), TIME_FORMAL_LONG));
+  WriteLn('Total time accounted for: ', SRL.MsToTime(Round(Active + Inactive), TIME_FORMAL_LONG));
+  WriteLn('Running for ', SRL.MsToTime(Round(Active), TIME_FORMAL_LONG), ' per day, on average.');
+
+  Result := Active;
+end;
+
+function TAntiban.SimulateSleep(): TDateTime;
+const
+  TEST_DAYS: UInt64 = 1000;
+var
+  Active, Inactive, Len, DayTime: Double;
+  TotalActive, TotalInactive: Double;
+  I: Int32;
+  Task: PSleepTask;
+  SleepHour: Double;
+begin
+  if Self.Sleeps = [] then
+  begin
+    WriteLn('No sleep schedule configured.');
+    Exit(0);
+  end;
+
+  Task := @Self.Sleeps[0];
+  SleepHour := StrToTime(Self.GetSleepHour()) * ONE_DAY;
+
+  for I := 1 to TEST_DAYS do
+  begin
+    DayTime := 0;
+    Active := SleepHour;
+    DayTime := SleepHour;
+
+    Len := Abs(SRL.GaussRand(Task^.Length, Task^.Length * Task^.StdVar));
+    Inactive := Len;
+    DayTime += Len;
+
+    if DayTime < ONE_DAY then
+      Active += ONE_DAY - DayTime;
+
+    TotalActive += Active;
+    TotalInactive += Inactive;
+  end;
+
+  TotalActive /= TEST_DAYS;
+  TotalInactive /= TEST_DAYS;
+
+  WriteLn('Simulated ', TEST_DAYS, ' days:');
+  WriteLn('Average active time per day: ', SRL.MsToTime(Round(TotalActive), TIME_FORMAL_LONG));
+  WriteLn('Average sleep time per day: ', SRL.MsToTime(Round(TotalInactive), TIME_FORMAL_LONG));
+  WriteLn('Total time accounted for: ', SRL.MsToTime(Round(TotalActive + TotalInactive), TIME_FORMAL_LONG));
+
+  Result := TotalInactive;
+end;
+
+procedure TAntiban.SimulateBreaksAndSleep();
+var
+  RunTime, SleepTime, BreakTime, TotalActiveTime: TDateTime;
+begin
+  WriteLn('Simulating Breaks:');
+  RunTime := Self.SimulateBreaks();
+  BreakTime := ONE_DAY - RunTime;
+
+  WriteLn;
+  WriteLn('Simulating Sleep:');
+  SleepTime := Self.SimulateSleep();
+
+  TotalActiveTime := ONE_DAY - SleepTime;
+
+  WriteLn;
+  WriteLn('Summary:');
+  WriteLn('Average run time (excluding long breaks): ', SRL.MsToTime(Round(RunTime), TIME_FORMAL_LONG));
+  WriteLn('Average break time: ', SRL.MsToTime(Round(BreakTime), TIME_FORMAL_LONG));
+  WriteLn('Average sleep time: ', SRL.MsToTime(Round(SleepTime), TIME_FORMAL_LONG));
+  WriteLn('Average total active time: ', SRL.MsToTime(Round(TotalActiveTime), TIME_FORMAL_LONG));
+  WriteLn('Average total inactive time: ', SRL.MsToTime(Round(BreakTime + SleepTime), TIME_FORMAL_LONG));
+end;
+
+procedure TAntiban.Setup(); override;
+begin
+  Inherited;
+  Self.Breaks := [];
+  Self.Sleeps := [];
+  Self.AddBreak(25 * ONE_MINUTE, 2 * ONE_MINUTE, 0.33, 0.01);
+  Self.AddSleep('01:00:00',  8.15 * ONE_HOUR, 0.1, 1);
+end;
+
+procedure TScript.Init(maxActions: UInt32; maxTime: UInt64); override;
+begin
+  inherited;
+  Antiban.SimulateBreaksAndSleep;
+
+end;
+
+var
+  Script: TScript;
+
+begin
+  Script.Init(999,999);
+end.
